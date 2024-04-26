@@ -6,7 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+#secrets
 .creds
+.envrc
 
 # Distribution / packaging
 .Python
