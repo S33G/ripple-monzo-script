@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "monzo-script"
+version = "0.1.0"
+description = ""
+authors = ["ripple <github@ripple.contact>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+"monzo-api" = {git = "https://github.com/rippleFCL/monzo-api.git"}
+
+
+[build-system]
+requires = ["poetry-core>=1.8.2"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "ASYNC", "PL", "RUF"]
+
+[tool.ruff]
+line-length = 127

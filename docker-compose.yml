@@ -1,0 +1,6 @@
+services:
+  monzo_script:
+    image: monzo-script:latest
+    build: .
+    volumes:
+      - ./.creds:/app/.creds
