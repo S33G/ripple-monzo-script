@@ -1,5 +1,6 @@
 services:
   monzo_script:
+    restart: always
     image: monzo-script:latest
     build: .
     volumes:

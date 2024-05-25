@@ -21,7 +21,7 @@ WORKDIR /app
 
 COPY poetry.lock pyproject.toml /app/
 
-RUN poetry install --no-interaction --no-ansi
+RUN poetry install --no-interaction --no-ansi && rm -rf $POETRY_CACHE_DIR
 
 COPY ./monzo_script /app
 
