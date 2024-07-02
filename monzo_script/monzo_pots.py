@@ -6,7 +6,9 @@ from monzo.authentication import Authentication
 from monzo.endpoints.account import Account
 from monzo.endpoints.pot import Pot
 from monzo.endpoints.transaction import Transaction
+import logging
 
+logger = logging.getLogger(__name__)
 
 class MonzoPot(object):
     def __init__(
@@ -46,6 +48,7 @@ class MonzoPot(object):
             "weighted_priority": "1",
             "minimum_priority": "1",
             "minimum_amount": "0",
+            "minimum_transfer_date": "0",
             "roundup_minimum": "0",
             "roundup_value": "0",
             "funding_priority": "0",
@@ -62,6 +65,8 @@ class MonzoPot(object):
                         pot_metadata["weighted_priority"] = data
                     elif flag == "MP":
                         pot_metadata["minimum_priority"] = data
+                    elif flag == "MTD":
+                        pot_metadata["minimum_transfer_date"] = data
                     elif flag == "RV":
                         pot_metadata["roundup_value"] = data
                     elif flag == "RM":
@@ -93,6 +98,10 @@ class MonzoPot(object):
     @property
     def minimum_priority(self) -> int:
         return int(self.metadata["minimum_priority"])
+
+    @property
+    def minimum_transfer_date(self) -> int:
+        return int(self.metadata["minimum_transfer_date"])
 
     @property
     def minimum_amount(self) -> int:
@@ -169,7 +178,14 @@ class MonzoPot(object):
 def fetch_pots(auth: Authentication, account: Account, transaction_since: datetime):
     account_id = account.account_id
     pots = Pot.fetch(auth, account.account_id)
-    transactions = Transaction.fetch(auth, account_id, since=transaction_since)
+    while True:
+        try:
+            transactions = Transaction.fetch(auth, account_id, since=transaction_since)
+        except Exception as e:
+            logger.exception(e)
+            time.sleep(5)
+            continue
+        break
     monzo_pots: list[MonzoPot] = []
     for pot in pots:
         if not pot.deleted:

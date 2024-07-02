@@ -6,7 +6,11 @@ from monzo.authentication import Authentication
 from monzo.endpoints.account import Account
 from pot_manager import PotManager
 from transaction_controlers import AccountTransactionGroup, AccountTransactionGroupInterface
+import datetime
+import calendar
+import logging
 
+logger = logging.getLogger(__name__)
 
 class AccountProcessorInterface(Protocol):
     def process(self, transaction_controller: AccountTransactionGroupInterface) -> None: ...
@@ -15,11 +19,29 @@ class AccountProcessorInterface(Protocol):
 class PotMinimumProcessor(AccountProcessorInterface):
     def __init__(self, pot_manager: PotManager) -> None:
         self.pot_manager = pot_manager
+        self.transfer_dates: dict[str, datetime.datetime] = {}
+
+    def get_ready_pot(self, pot: monzo_pots.MonzoPot) -> bool:
+        if pot.minimum_transfer_date:
+            current_time = datetime.datetime.now()
+            _, days_in_month = calendar.monthrange(current_time.year, current_time.month)
+            transfer_date = min(pot.minimum_transfer_date, days_in_month)
+            next_transfer = datetime.datetime(current_time.year, current_time.month, transfer_date)
+            if current_time <= next_transfer:
+                return False
+            elif (
+                self.transfer_dates.get(pot.pot_id) is not None
+                and self.transfer_dates[pot.pot_id].month == next_transfer.month
+            ):
+                return False
+
+            self.transfer_dates[pot.pot_id] = next_transfer
+            return True
 
     def _get_minimum_pots(self) -> list[monzo_pots.MonzoPot]:
         minimum_pots: list[monzo_pots.MonzoPot] = []
         for pot in self.pot_manager.pots:
-            if pot.minimum_amount and not pot.saving_priority:
+            if pot.minimum_amount and not pot.saving_priority and self.get_ready_pot(pot):
                 minimum_pots.append(pot)
         return minimum_pots
 

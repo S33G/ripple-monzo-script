@@ -50,14 +50,16 @@ auth.register_callback_handler(handler)
 accounts = Account.fetch(auth)
 account_managers: list[AccountManager] = []
 for account in accounts:
-    pot_manager = PotManager.from_account(auth, account)
-    account_manager = AccountManager(auth, account, pot_manager, dry_run=False)
-    account_manager.register_processor(PotMinimumProcessor(pot_manager))
-    account_manager.register_processor(SavingsPercentageProcessor(pot_manager))
-    account_manager.register_processor(PotGoalProcessor(pot_manager))
-    account_manager.register_processor(SavingsOverflowProcessor(pot_manager))
-    account_manager.register_processor(RoundupProcessor(pot_manager))
-    account_managers.append(account_manager)
+    if account.account_type() != "UNKNOWN":
+        logger.info("acctype: %s, accid: %s", account.account_type(), account.account_id)
+        pot_manager = PotManager.from_account(auth, account)
+        account_manager = AccountManager(auth, account, pot_manager, dry_run=False)
+        account_manager.register_processor(PotMinimumProcessor(pot_manager))
+        account_manager.register_processor(SavingsPercentageProcessor(pot_manager))
+        account_manager.register_processor(PotGoalProcessor(pot_manager))
+        account_manager.register_processor(SavingsOverflowProcessor(pot_manager))
+        account_manager.register_processor(RoundupProcessor(pot_manager))
+        account_managers.append(account_manager)
 
 while 1:
     time.sleep(2)
