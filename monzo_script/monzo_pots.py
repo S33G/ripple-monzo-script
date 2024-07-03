@@ -45,7 +45,7 @@ class MonzoPot(object):
     def metadata(self) -> dict[str, str]:
         pot_metadata: dict[str, str] = {
             "name": "",
-            "weighted_priority": "1",
+            "weighted_priority": "0",
             "minimum_priority": "1",
             "minimum_amount": "0",
             "minimum_transfer_date": "0",
