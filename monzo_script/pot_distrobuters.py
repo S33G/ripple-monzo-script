@@ -18,7 +18,8 @@ def priority_distribution(
     tc: AccountTransactionGroupInterface,
     src_percentage: float = 1,
     funding_amount_max: int = 0,
-):
+) -> list[tuple[MonzoPot, int]]: 
+    processed_pots: list[tuple[MonzoPot, int]] = []
     if tc.get_pot_factored_balance(src_pot) > 0:
         priority_dest_pots: defaultdict[int, list[PotTarget]] = defaultdict(list)
         for dest_pot in dest_pots:
@@ -41,6 +42,7 @@ def priority_distribution(
                     transaction_amount = pot_needed if pot_needed < pot_amount else pot_amount
                     if transaction_amount > 0:
                         tc.transfer_between_pots(src_pot, pot_target.pot, transaction_amount)
+                        processed_pots.append((pot_target.pot, transaction_amount))
                         funding_balance -= transaction_amount
                     num_pots -= 1
                 else:
@@ -48,11 +50,13 @@ def priority_distribution(
             else:
                 continue
             break
-
+    return processed_pots
 
 def weighted_distribution(
     src_pot: MonzoPot, dest_pots: list[PotTarget], tc: AccountTransactionGroupInterface, src_percentage: float = 1
-):
+) -> list[tuple[MonzoPot, int]]:
+    processed_pots: list[tuple[MonzoPot, int]] = []
+
     if tc.get_pot_factored_balance(src_pot) > 0:
         priority_slices = sum(pot.priority for pot in dest_pots)
         sorted_pot_targets = sorted(
@@ -69,7 +73,10 @@ def weighted_distribution(
                     transaction_amount = pot_needed if pot_needed < pot_amount_weighted else pot_amount_weighted
                     if transaction_amount > 0:
                         tc.transfer_between_pots(src_pot, pot_target.pot, transaction_amount)
+                        processed_pots.append((pot_target.pot, transaction_amount))
+
                     priority_slices -= pot_target.priority
                     funding_balance -= transaction_amount
                 else:
                     break
+    return processed_pots

@@ -12,6 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class AccountProcessorInterface(Protocol):
     def process(self, transaction_controller: AccountTransactionGroupInterface) -> None: ...
 
@@ -21,7 +22,7 @@ class PotMinimumProcessor(AccountProcessorInterface):
         self.pot_manager = pot_manager
         self.transfer_dates: dict[str, datetime.datetime] = {}
 
-    def get_ready_pot(self, pot: monzo_pots.MonzoPot) -> bool:
+    def is_pot_ready(self, pot: monzo_pots.MonzoPot) -> bool:
         if pot.minimum_transfer_date:
             current_time = datetime.datetime.now()
             _, days_in_month = calendar.monthrange(current_time.year, current_time.month)
@@ -34,34 +35,46 @@ class PotMinimumProcessor(AccountProcessorInterface):
                 and self.transfer_dates[pot.pot_id].month == next_transfer.month
             ):
                 return False
+        return True
 
+    def post_pot_transfer(self, pot: monzo_pots.MonzoPot):
+        if pot.minimum_transfer_date:
+            current_time = datetime.datetime.now()
+            _, days_in_month = calendar.monthrange(current_time.year, current_time.month)
+            transfer_date = min(pot.minimum_transfer_date, days_in_month)
+            next_transfer = datetime.datetime(current_time.year, current_time.month, transfer_date)
             self.transfer_dates[pot.pot_id] = next_transfer
-            return True
 
     def _get_minimum_pots(self) -> list[monzo_pots.MonzoPot]:
         minimum_pots: list[monzo_pots.MonzoPot] = []
         for pot in self.pot_manager.pots:
-            if pot.minimum_amount and not pot.saving_priority and self.get_ready_pot(pot):
+            if pot.minimum_amount and not pot.saving_priority and self.is_pot_ready(pot):
                 minimum_pots.append(pot)
         return minimum_pots
 
     def _get_funding_pots(self) -> list[monzo_pots.MonzoPot]:
         funding_pots: list[monzo_pots.MonzoPot] = []
         for pot in self.pot_manager.pots:
-            if pot.funding_source and not pot.locked:
+            if pot.funding_source and not pot.locked and self.is_pot_ready(pot):
                 funding_pots.append(pot)
         return funding_pots
 
     def process(self, transaction_controller: AccountTransactionGroupInterface) -> None:
         processing_pots = self._get_minimum_pots()
         funding_pots = sorted(self._get_funding_pots(), key=lambda pot: pot.funding_priority, reverse=True)
+        processed_pots: list[monzo_pots.MonzoPot] = []
         for funding_pot in funding_pots:
             with transaction_controller.change_transaction_creator("PMP"):
-                pot_distrobuters.priority_distribution(
+                pots_transferred = pot_distrobuters.priority_distribution(
                     funding_pot,
                     [pot_distrobuters.PotTarget(pot, pot.minimum_amount, pot.minimum_priority) for pot in processing_pots],
                     transaction_controller,
                 )
+                if pots_transferred:
+                    processed_pots.extend(map(lambda x: x[0], filter(lambda x: x not in processed_pots, pots_transferred)))
+                    processed_pots.append(funding_pot)
+        for pot in processed_pots:
+            self.post_pot_transfer(pot)
 
 
 class PotGoalProcessor(AccountProcessorInterface):
